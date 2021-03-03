@@ -1,0 +1,75 @@
+import numpy as np
+from ortools.linear_solver import pywraplp
+
+
+# instantiate the solver
+solver = pywraplp.Solver('SolveSimpleSystem', pywraplp.Solver.CBC_MIXED_INTEGER_PROGRAMMING)
+
+
+'''
+Initialize parameters
+'''
+
+# create a dictionary to store the variables
+x = {}
+u = {}
+
+# define how many cities, or ports, there are to visit
+cities = 10
+
+# create a matrix of random numbers with the dimension equal to cities
+distance = np.random.randint(5,20,size=(cities, cities))
+
+'''
+Decision Variables:
+Let Xij = 1 if arc i to j is used
+'''
+
+# define the variables
+for i in range(1,cities+1):
+    for j in range(1,cities+1):
+        if i!=j:
+            x[i,j] = solver.IntVar(0,1,'x[%s%s]' % (i,j))
+
+# u is a decision variable used to prevent cycling (returning to the same city)
+for i in range(1, cities+1):
+    u[i] = solver.IntVar(0,1,'u[%s]' % (i))
+
+###########################################
+
+'''
+Constraints
+'''
+
+# every city is visited and exited exactly once
+for i in range(1, cities+1):
+    solver.Add(solver.Sum([x[i,j] for j in range(1,cities+1) if j!=i]) == 1)
+
+for j in range(1, cities+1):
+    solver.Add(solver.Sum([x[i,j] for i in range(1,cities+1) if j!=i]) == 1)
+
+# prevent the model from returning to the exact same city       
+solver.Add(np.sum([u[i] - u[j] + cities*x[i,j] - (cities - 1) for i in \
+                   range(2,cities+1) for i in range(2,cities+1) if j!=i])<=0)
+
+###########################################
+
+'''
+Objective Function
+'''
+
+solver.Minimize(np.sum([x[i,j]*distance[i-1][j-1] for i in range(1,cities+1) \
+                        for j in range(1,cities+1) if j!=i]))
+
+# solve the problem            
+solver.Solve()
+
+
+# print the solutions (decision variables equal to 1)
+for i in range(1,cities+1):
+    for j in range(1,cities+1):
+        if i!=j:    
+            if x[i,j].solution_value() == 1:
+                print('x[%s, %s]' % (i,j), x[i,j].solution_value())
+                
+   
