@@ -3,26 +3,42 @@ from ortools.linear_solver import pywraplp
 
 
 # instantiate the solver
-solver = pywraplp.Solver('SolveSimpleSystem', pywraplp.Solver.CBC_MIXED_INTEGER_PROGRAMMING)
+solver = pywraplp.Solver('SolveSimpleSystem', pywraplp.Solver.\
+                         CBC_MIXED_INTEGER_PROGRAMMING)
 
 
-'''
-Initialize parameters
-'''
+###########################################
+# Initialize parameters
+###########################################
 
 # create a dictionary to store the variables
 x = {}
 u = {}
 
 # define how many cities, or ports, there are to visit
-cities = 10
+cities = 5
 
 # create a matrix of random numbers with the dimension equal to cities
 distance = np.random.randint(5,20,size=(cities, cities))
 
 '''
+The below matrix is provided to prove the model finds an optimal path.
+It can clearly be seen that the optimal path is:
+    1 -> 5 -> 3 -> 4 -> 2 -> 1
+To verify, set cities equal to 5, uncomment the below matrix and comment 
+out the above matrix
+'''
+
+#distance = [[50000, 500, 600, 700, 50],
+#            [50, 50000, 500, 600, 700],
+#            [500, 6000, 50000, 50, 700],
+#            [500, 50, 600, 50000, 700],
+#            [500, 50000, 50, 600, 700]]
+
+'''
 Decision Variables:
 Let Xij = 1 if arc i to j is used
+Ui is a binary variable used to prevent cycling (returning to the same city)
 '''
 
 # define the variables
@@ -31,9 +47,9 @@ for i in range(1,cities+1):
         if i!=j:
             x[i,j] = solver.IntVar(0,1,'x[%s%s]' % (i,j))
 
-# u is a decision variable used to prevent cycling (returning to the same city)
 for i in range(1, cities+1):
-    u[i] = solver.IntVar(0,1,'u[%s]' % (i))
+    u[i] = solver.NumVar(0,1,'u[%s]' % (i))
+
 
 ###########################################
 
@@ -43,14 +59,14 @@ Constraints
 
 # every city is visited and exited exactly once
 for i in range(1, cities+1):
-    solver.Add(solver.Sum([x[i,j] for j in range(1,cities+1) if j!=i]) == 1)
+    solver.Add(solver.Sum([x[i,j] for j in range(1, cities+1) if j!=i]) == 1)
 
 for j in range(1, cities+1):
-    solver.Add(solver.Sum([x[i,j] for i in range(1,cities+1) if j!=i]) == 1)
+    solver.Add(solver.Sum([x[i,j] for i in range(1, cities+1) if j!=i]) == 1)
 
 # prevent the model from returning to the exact same city       
 solver.Add(np.sum([u[i] - u[j] + cities*x[i,j] - (cities - 1) for i in \
-                   range(2,cities+1) for i in range(2,cities+1) if j!=i])<=0)
+                   range(2, cities+1) for j in range(2, cities+1) if j!=i])<=0)
 
 ###########################################
 
@@ -58,16 +74,16 @@ solver.Add(np.sum([u[i] - u[j] + cities*x[i,j] - (cities - 1) for i in \
 Objective Function
 '''
 
-solver.Minimize(np.sum([x[i,j]*distance[i-1][j-1] for i in range(1,cities+1) \
-                        for j in range(1,cities+1) if j!=i]))
+solver.Minimize(np.sum([x[i,j]*distance[i-1][j-1] for i in range(1, cities+1) \
+                        for j in range(1, cities+1) if j!=i]))
 
 # solve the problem            
 solver.Solve()
 
 
 # print the solutions (decision variables equal to 1)
-for i in range(1,cities+1):
-    for j in range(1,cities+1):
+for i in range(1, cities+1):
+    for j in range(1, cities+1):
         if i!=j:    
             if x[i,j].solution_value() == 1:
                 print('x[%s, %s]' % (i,j), x[i,j].solution_value())
